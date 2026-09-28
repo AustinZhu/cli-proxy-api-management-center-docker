@@ -1,0 +1,70 @@
+name: Container image
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.74.0
+      - uses: regclient/actions/regctl-installer@bb562fac724b7b37c17f19671df07fe34fabc376
+        with:
+          release: v0.11.6
+      - name: Build OCI artifact
+        run: |
+          mkdir -p .artifacts
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            --tag management-ui:ci \
+            --attest type=sbom --attest type=provenance,mode=min \
+            --output type=oci,dest=.artifacts/image.oci,tar=false .
+      - name: Audit both architectures
+        run: |
+          for arch in amd64 arm64; do
+            trivy image --input .artifacts/image.oci --platform "linux/$arch" \
+              --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed \
+              --scanners vuln,secret,misconfig --no-progress
+          done
+      - name: Smoke-test audited artifacts
+        run: python3 tests/smoke.py .artifacts/image.oci
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish audited artifact
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          IMAGE_OWNER: ${{ github.repository_owner }}
+        run: |
+          source="ocidir://.artifacts/image.oci:ci"
+          target="ghcr.io/${IMAGE_OWNER,,}/cli-proxy-api-management-center:${RELEASE_TAG#v}"
+          expected=$(regctl image digest "$source")
+          if existing=$(regctl image digest "$target" 2>/dev/null); then
+            test "$existing" = "$expected"
+          fi
+          regctl image copy --force-recursive "$source" "$target"
+          test "$(regctl image digest "$target")" = "$expected"

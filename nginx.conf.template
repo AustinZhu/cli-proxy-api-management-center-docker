@@ -1,0 +1,35 @@
+pid /tmp/nginx.pid;
+error_log /dev/stderr warn;
+
+events {}
+
+http {
+    include /etc/nginx/mime.types;
+    access_log off;
+    client_body_temp_path /tmp/client_temp;
+    proxy_temp_path /tmp/proxy_temp;
+    fastcgi_temp_path /tmp/fastcgi_temp;
+    uwsgi_temp_path /tmp/uwsgi_temp;
+    scgi_temp_path /tmp/scgi_temp;
+
+    server {
+        listen ${CLIPROXYAPI_UI_SERVER_PORT};
+        root /www;
+        client_max_body_size 10m;
+
+        location /v0/management/ {
+            resolver 127.0.0.11 valid=10s ipv6=off;
+            set $backend "${CLIPROXYAPI_UI_API_ENDPOINT}";
+            proxy_pass $backend$request_uri;
+            proxy_http_version 1.1;
+            proxy_set_header Host $http_host;
+            proxy_set_header Connection "";
+            proxy_buffering off;
+            proxy_read_timeout 300s;
+        }
+
+        location / {
+            try_files $uri $uri/ =404;
+        }
+    }
+}
