@@ -64,9 +64,11 @@ copies the audited artifact without rebuilding. SBOM and provenance attestations
 are included. The scan fails for fixable HIGH/CRITICAL vulnerabilities and secret
 findings; scanning bundled JavaScript is not a substitute for a source audit.
 
-Push a version tag such as `v1.24.2-2` to publish the corresponding GitHub Container Registry tag.
+Push a version tag such as `v1.24.2-2` to publish the corresponding GitHub
+Container Registry tag.
 The workflow uses the built-in `GITHUB_TOKEN`; no registry secret is required.
-Pull requests and pushes to `main` build and verify without publishing. Prefer digest-pinned image
+Pull requests and pushes to `main` build and verify without publishing.
+Prefer digest-pinned image
 references for deployments.
 
 ## License
