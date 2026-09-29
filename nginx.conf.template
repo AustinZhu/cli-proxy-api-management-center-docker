@@ -17,7 +17,7 @@ http {
         root /www;
         client_max_body_size 10m;
 
-        location /v0/management/ {
+        location ~ ^/v0/(management/|resource/plugins/) {
             resolver 127.0.0.11 valid=10s ipv6=off;
             set $backend "${CLIPROXYAPI_UI_API_ENDPOINT}";
             proxy_pass $backend$request_uri;

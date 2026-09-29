@@ -11,7 +11,7 @@ This is independent container packaging, not the upstream application's source.
 ```yaml
 services:
   management-ui:
-    image: ghcr.io/austinzhu/cli-proxy-api-management-center:1.24.2-2
+    image: ghcr.io/austinzhu/cli-proxy-api-management-center:1.24.2-3
     environment:
       CLIPROXYAPI_UI_API_ENDPOINT: http://cliproxyapi:8317
       CLIPROXYAPI_UI_SERVER_PORT: "8080"
@@ -37,9 +37,10 @@ require a strong, separate management key. An inference API key is not sufficien
 | `CLIPROXYAPI_UI_API_ENDPOINT` | `http://cliproxyapi:8317` | Backend origin without a path or trailing slash |
 | `CLIPROXYAPI_UI_SERVER_PORT` | `8080` | Internal HTTP port; update the published port mapping if changed |
 
-Only `/v0/management/` is forwarded. Inference requests belong on the backend's
-own endpoint. The browser supplies the management credential; the container
-receives no credentials and does not mount provider token storage. Avoid saving
+`/v0/management/` and `/v0/resource/plugins/` are forwarded. The latter serves
+plugin pages and assets; management operations still require the browser's
+management credential. Inference requests belong on the backend's own endpoint.
+The browser supplies the management credential; the container receives no credentials and does not mount provider token storage. Avoid saving
 management credentials in a shared browser profile. Upstream browser storage
 obfuscation is not encryption.
 
@@ -64,7 +65,7 @@ copies the audited artifact without rebuilding. SBOM and provenance attestations
 are included. The scan fails for fixable HIGH/CRITICAL vulnerabilities and secret
 findings; scanning bundled JavaScript is not a substitute for a source audit.
 
-Push a version tag such as `v1.24.2-2` to publish the corresponding GitHub
+Push a version tag such as `v1.24.2-3` to publish the corresponding GitHub
 Container Registry tag.
 The workflow uses the built-in `GITHUB_TOKEN`; no registry secret is required.
 Pull requests and pushes to `main` build and verify without publishing.

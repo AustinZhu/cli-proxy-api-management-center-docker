@@ -45,6 +45,9 @@ http {
  scgi_temp_path /tmp/scgi_temp;
  server {
   listen 8182;
+  location /v0/resource/plugins/ {
+   return 200 '<html>plugin quota page</html>';
+  }
   location /v0/management/ {
    if ($http_authorization != "Bearer fixture-key") { return 401; }
    return 200 '{"ok":true}';
@@ -79,6 +82,12 @@ http {
             assert request(endpoint, "wrong-key")[0] == 401
             status, body = request(endpoint, "fixture-key")
             assert status == 200 and json.loads(body) == {"ok": True}
+            status, body = request(base + "/v0/resource/plugins/example/quota")
+            assert status == 200 and body == b"<html>plugin quota page</html>"
+            quota = base + "/v0/management/plugins/example/quota-usage"
+            assert request(quota)[0] == 401
+            assert request(quota, "fixture-key")[0] == 200
+            assert request(base + "/v0/resource/unrelated")[0] == 404
             assert request(base + "/v1/models")[0] == 404
             print(f"linux/{arch}: UI, proxy configuration, and authentication passed")
         finally:
