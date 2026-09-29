@@ -14,10 +14,10 @@ def run(*args):
     return subprocess.check_output(args, text=True).strip()
 
 
-def request(url, token=None):
+def request(url, token=None, method="GET"):
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=3) as response:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=headers, method=method), timeout=3) as response:
             return response.status, response.read()
     except urllib.error.HTTPError as error:
         return error.code, error.read()
@@ -45,6 +45,10 @@ http {
  scgi_temp_path /tmp/scgi_temp;
  server {
   listen 8182;
+  location = /v1/models {
+   if ($http_authorization != "Bearer client-key") { return 401; }
+   return 200 '{"data":[]}';
+  }
   location /v0/resource/plugins/ {
    return 200 '<html>plugin quota page</html>';
   }
@@ -88,7 +92,15 @@ http {
             assert request(quota)[0] == 401
             assert request(quota, "fixture-key")[0] == 200
             assert request(base + "/v0/resource/unrelated")[0] == 404
-            assert request(base + "/v1/models")[0] == 404
+            models = base + "/v1/models"
+            assert request(models)[0] == 401
+            assert request(models, "fixture-key")[0] == 401
+            status, body = request(models + "?limit=1", "client-key")
+            assert status == 200 and json.loads(body) == {"data": []}
+            assert request(models, "client-key", "HEAD")[0] == 200
+            assert request(models, "client-key", "POST")[0] == 405
+            for path in ("/v1/models/extra", "/v1/chat/completions", "/v1/responses", "/v1/messages"):
+                assert request(base + path)[0] == 404
             print(f"linux/{arch}: UI, proxy configuration, and authentication passed")
         finally:
             for container in reversed(containers):
